@@ -1,0 +1,15 @@
+# Recovered from the session transcript (header lines were not captured).
+# wakelat here did NOT disable timer slack (bug), so the CPU wake-up rows are invalid.
+=== before-2  Mon Oct 12 2026 ~09:31  kernel: 7.0.0-38-generic  (stock cmdline, same as run 1)
+--- CPU wake-up latency
+sleep    50us x5000  overshoot us: median   51.1  p99    52.1  max    67.6
+sleep  1000us x2000  overshoot us: median   51.5  p99    59.8  max    68.4
+sleep 10000us x300   overshoot us: median   60.2  p99    65.7  max    68.1
+--- NVMe 4K random read latency
+4K read gap    0ms x20000 latency us: median   47.1  p99  2128.2  max  3754.5
+4K read gap  200ms x100   latency us: median  609.9  p99  7268.2  max  7268.2
+--- Memory
+memcpy 1GiB single-thread: 37.7 GB/s
+--- 7-Zip (MIPS, higher=better)
+1 thread : 6772
+all thr  : 125495

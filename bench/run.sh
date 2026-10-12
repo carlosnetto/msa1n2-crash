@@ -2,12 +2,12 @@
 # Micro-benchmark focused on what idle power-saving changes affect:
 # CPU C-state wake-up latency, NVMe/PCIe wake latency, plus throughput sanity checks.
 #
-# Usage: bench/run.sh <label>      -> writes results/<label>.txt
+# Usage: bench/run.sh <output-file>   e.g. bench/run.sh experiments/NN-name/result.txt
 # Needs: gcc, 7z (p7zip-full). No root required.
 set -e
 here="$(cd "$(dirname "$0")" && pwd)"
-out="$here/../results/$1.txt"
-[ -n "$1" ] || { echo "usage: $0 <label>"; exit 1; }
+out="$(realpath -m "$1")"
+[ -n "$1" ] || { echo "usage: $0 <output-file>"; exit 1; }
 cd "$here"
 for p in wakelat nvmelat membw; do [ "$p" -nt "$p.c" ] || gcc -O2 -o "$p" "$p.c"; done
 # 4 GiB file read with O_DIRECT (page cache bypassed); must live on the NVMe under test.

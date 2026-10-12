@@ -86,7 +86,7 @@ freezes come every 1–4 weeks).
 
 | # | Action | Status |
 |---|---|---|
-| 1 | Kernel params `processor.max_cstate=2 nvme_core.default_ps_max_latency_us=0 pcie_aspm=off` | **Applied 2026-10-12** |
+| 1 | Kernel params `processor.max_cstate=2 nvme_core.default_ps_max_latency_us=0 pcie_aspm=off` | **Applied 2026-10-12**; no performance cost ([exp 03](experiments/03-kernel-params-steady-state/)) |
 | 2 | BIOS: *Power Supply Idle Control* set to **Typical Current Idle**; **EXPO off**; optionally *UMA Frame Buffer* set to 512M (frees ~1.5 GB) | To do |
 | 3 | Kernel param `modprobe.blacklist=amdgpu` (headless box; console falls back to the firmware framebuffer) | If it freezes again |
 | 4 | memtest86+ overnight (already in the GRUB menu) | If it freezes again |
@@ -139,48 +139,59 @@ Minisforum BIOS packages flash from the UEFI shell:
 5. Load defaults, re-enable Secure Boot, restore your settings, then check with
    `cat /sys/class/dmi/id/bios_version`.
 
-## Benchmark: before and after the kernel parameters
+## Experiments and results
 
-`bench/run.sh <label>` runs small, root-free tests aimed at what the
-parameters change:
+All runs, including the ones that went wrong, are documented in
+[`experiments/`](experiments/). Each has its own README with the change made,
+the conditions, the raw output and a verdict.
 
-- `wakelat`: nanosleep overshoot (timer slack disabled), which shows CPU
-  C-state exit latency.
-- `nvmelat`: QD1 4K random `O_DIRECT` reads, back-to-back and with 200 ms
-  idle gaps, which shows NVMe/PCIe wake latency.
-- `membw`: single-thread memcpy bandwidth.
-- 7-Zip: `7z b` with 1 thread and with all threads, for CPU throughput.
+| # | Change | Valid? | Outcome |
+|---|---|---|---|
+| [00](experiments/00-baseline/) | stock | ✅ | Baseline |
+| [01](experiments/01-timer-slack-artifact/) | stock | ⚠️ | Measurement bug found and fixed (timer slack hid C-state latency) |
+| [02](experiments/02-kernel-params-vms-off/) | kernel params, **VMs stopped** | ❌ | Not comparable; showed package C-states give an idle box ~0.36 ms wake-ups |
+| [03](experiments/03-kernel-params-steady-state/) | kernel params, VMs steady | ✅ | **No performance change** within noise |
 
-Raw output is in [`results/`](results/).
+**Kernel parameters, stock vs. applied (VMs in steady state):**
 
-| Test | Before (`results/before.txt`) | After (`results/after.txt`) |
+| Metric | Stock (range of 3 runs) | With params |
 |---|---|---|
-| CPU wake after a 10 ms sleep, median | 10.4 µs | _pending_ |
-| NVMe 4K read back-to-back, median / p99 | 47 µs / 3,399 µs | _pending_ |
-| NVMe 4K read after 200 ms idle, median | 1,517 µs | _pending_ |
-| memcpy, 1 thread | 37.9 GB/s | _pending_ |
-| 7-Zip, 1 thread / 32 threads (MIPS) | 6,900 / 123,933 | _pending_ |
+| CPU wake after 10 ms sleep, median | 10.0–10.8 µs | 11.4 µs |
+| NVMe 4K read back-to-back, median / p99 | 47–50 µs / 2.1–3.4 ms | 47.7 µs / 2.1 ms |
+| NVMe 4K read after 200 ms idle, median | 0.61–1.52 ms | 0.58 ms |
+| memcpy, 1 thread | 37.6–37.9 GB/s | 37.1 GB/s |
+| 7-Zip, 1 thread / all threads (MIPS) | 6,695–6,900 / 123,933–125,495 | 6,761 / 124,693 |
 
-Caveats: this is a live host, so background VM load adds noise (compare
-`load:` in each file). Run while the VMs are in their normal steady state, not
-during startup or JVM warm-up. A first "after" run done with all VMs stopped was
-discarded: with the whole system idle, package C-states made the 10 ms wake
-latency ~359 µs and throughput looked about 15% higher, so it couldn't be
-compared with the busy baseline.
+**Conclusion so far:** the mitigation costs no measurable performance (power
+draw not measured). Whether it stops the freezes can only be judged after
+about 4 weeks without one; see the incident log.
+
+### Benchmark tool
+
+`bench/run.sh <output-file>` builds and runs small tests that don't need root:
+
+- `wakelat`: nanosleep overshoot with timer slack disabled (CPU C-state exit latency).
+- `nvmelat`: QD1 4K random `O_DIRECT` reads, back-to-back and with 200 ms
+  idle gaps (NVMe/PCIe wake latency).
+- `membw`: single-thread memcpy bandwidth.
+- 7-Zip: `7z b`, with 1 thread and with all threads.
+
+Run it with the VMs in their normal steady state (after boot and JVM warm-up).
+Background load adds noise, so compare against the baseline *range*.
 
 ## Repo layout
 
 ```
-README.md            this file
+README.md            this file: problem, diagnosis, research, plan, summary
+experiments/         one folder per test run: README (change, conditions, results, verdict) + raw output
+bench/               benchmark sources and runner (bench/run.sh <output-file>)
 scripts/diagnose.sh  post-crash log triage (boots, unclean shutdowns, errors, idle states, sysstat)
-bench/               benchmark sources and runner (bench/run.sh <label>)
-results/             benchmark outputs (root UUID redacted)
 ```
 
 ## If it freezes again
 
 1. Power-cycle, then run `scripts/diagnose.sh` and add a dated entry to the log below.
-2. Move to the next step in the action plan.
+2. Move to the next step in the action plan, and record it as a new experiment.
 
 ## Incident log
 
@@ -190,3 +201,4 @@ results/             benchmark outputs (root UUID redacted)
 | 2026-08-31 | 7.0.0-30 | none | unclean shutdown in journal |
 | 2026-09-25 | 7.0.0-30 | none | unclean shutdown in journal |
 | 2026-10-12 07:30 | 7.0.0-38 | none | hard freeze at ~94% idle, nothing logged |
+| 2026-10-12 09:40 | 7.0.0-38 | kernel params (step 1) | mitigation applied, monitoring starts. **No freeze since** (update this row) |

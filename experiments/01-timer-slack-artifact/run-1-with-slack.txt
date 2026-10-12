@@ -1,0 +1,18 @@
+# Recovered from the session transcript; the original file was deleted after the wakelat fix.
+# wakelat here did NOT disable timer slack (bug), so the CPU wake-up rows are invalid.
+=== before-1  Mon Oct 12 09:29:28 AM CDT 2026  kernel: 7.0.0-38-generic
+cmdline: BOOT_IMAGE=/boot/vmlinuz-7.0.0-38-generic root=UUID=<redacted> ro quiet splash vt.handoff=7
+load: 2.07 2.04 2.09   nvme ps_max_latency: 100000
+cpu0 idle states: POLL(on) C1(on) C2(on) C3(on) 
+--- CPU wake-up latency
+sleep    50us x5000  overshoot us: median   51.1  p99    52.3  max    70.9
+sleep  1000us x2000  overshoot us: median   51.4  p99    63.3  max    73.0
+sleep 10000us x300   overshoot us: median   61.5  p99    66.1  max    71.1
+--- NVMe 4K random read latency
+4K read gap    0ms x20000 latency us: median   50.3  p99  2594.2  max 12930.7
+4K read gap  200ms x100   latency us: median  671.2  p99  2569.7  max  2569.7
+--- Memory
+memcpy 1GiB single-thread: 37.6 GB/s
+--- 7-Zip (MIPS, higher=better)
+1 thread : 6695
+all thr  : 124427
